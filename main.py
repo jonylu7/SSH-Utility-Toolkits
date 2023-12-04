@@ -4,6 +4,7 @@ import os
 from pathlib import Path,PurePath
 import config as config
 
+
 def connect_host_SSH(server:str,username:str,password:str)->paramiko.client.SSHClient:
     client=paramiko.client.SSHClient()
     client.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
@@ -17,42 +18,62 @@ def connect_host_SFTP(server:str,username:str,password:str)->paramiko.Transport:
 
 def mkdir_remote(sftp:paramiko.SFTPClient,remotepath:str)->None:
     try:
-        sftp.chdir(remotepath)
-    except:
         sftp.mkdir(remotepath)
         print("MAKEDIR", remotepath)
-    else:
+    except:
         print("SKIPMAKEDIR", remotepath)
         return None
 
-def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str):
-    filesArray=list(iter(Path(from_dir).glob("*")))
-    if(len(filesArray)==0):
+
+def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str,TOTAL_FILES):
+    nowcopy=0
+    fromFilesArray=list(iter(Path(from_dir).glob("*")))
+    toFilesArray=list(sftp.listdir(target_dir))
+
+    if(len(fromFilesArray)==0):
         return
     else:
-        for file in filesArray:
-            target_file_loc = target_dir +"/"+ PurePath(file).stem
+        for file in fromFilesArray:
+            target_file_loc = target_dir +"/"+ PurePath(file).name
             if(file.is_dir()):
-                mkdir_remote(sftp,str(PurePath(target_file_loc).parent))
-                copy_files(sftp,str(file),target_file_loc)
+                mkdir_remote(sftp,str(PurePath(target_file_loc)))
+                nowcopy+=copy_files(sftp,str(file),target_file_loc,TOTAL_FILES)
             else:
-                mkdir_remote(sftp, str(PurePath(target_file_loc).parent))
-                try:
-                    sftp.put(str(file),target_file_loc)
-                    print("COPY",file,target_file_loc)
-                except:
-                    print("SKIP",file, target_file_loc)
-                    continue
+                print("Progress:{}/{}".format(nowcopy, TOTAL_FILES))
+                if(PurePath(file).stem in toFilesArray):
+                    print("SKIP", file, target_file_loc)
+                    nowcopy += 1
+                else:
+                    mkdir_remote(sftp, str(PurePath(target_file_loc).parent))
+                    sftp.put(str(file), target_file_loc)
+                    nowcopy += 1
+                    print("COPY", file, target_file_loc)
 
+
+    return nowcopy
+
+
+
+def calculateTotalFiles(from_dir:str)->int:
+    count=0
+    filesArray = list(iter(Path(from_dir).glob("*")))
+    for file in filesArray:
+        if (file.is_dir()):
+            count+=calculateTotalFiles(str(file))
+        else:
+            count+=1
+    return count
 
 
 
 def main():
     transport=connect_host_SFTP(config.server,config.username,config.password)
     sftp = paramiko.SFTPClient.from_transport(transport)
-    copy_files(sftp,config.FROM_PATH,config.TO_PATH)
+    TOTAL_FILES=calculateTotalFiles(config.FROM_PATH)
+    print(copy_files(sftp,config.FROM_PATH,config.TO_PATH,TOTAL_FILES))
 
     transport.close()
+    sftp.close()
 
 
 if __name__ == '__main__':
