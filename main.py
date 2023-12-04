@@ -39,7 +39,6 @@ def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str,TOTAL_FILES)
                 mkdir_remote(sftp,str(PurePath(target_file_loc)))
                 nowcopy+=copy_files(sftp,str(file),target_file_loc,TOTAL_FILES)
             else:
-                print("Progress:{}/{}".format(nowcopy, TOTAL_FILES))
                 if(PurePath(file).stem in toFilesArray):
                     print("SKIP", file, target_file_loc)
                     nowcopy += 1
@@ -48,8 +47,7 @@ def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str,TOTAL_FILES)
                     sftp.put(str(file), target_file_loc)
                     nowcopy += 1
                     print("COPY", file, target_file_loc)
-
-
+                print("Progress:{}/{}".format(nowcopy, TOTAL_FILES))
     return nowcopy
 
 
@@ -70,7 +68,7 @@ def main():
     transport=connect_host_SFTP(config.server,config.username,config.password)
     sftp = paramiko.SFTPClient.from_transport(transport)
     TOTAL_FILES=calculateTotalFiles(config.FROM_PATH)
-    print(copy_files(sftp,config.FROM_PATH,config.TO_PATH,TOTAL_FILES))
+    copy_files(sftp,config.FROM_PATH,config.TO_PATH,TOTAL_FILES)
 
     transport.close()
     sftp.close()
