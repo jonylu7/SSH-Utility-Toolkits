@@ -2,7 +2,7 @@ from scp import SCPClient
 import paramiko
 import os
 from pathlib import Path,PurePath
-import config_default as config
+import config as config
 
 def connect_host_SSH(server:str,username:str,password:str)->paramiko.client.SSHClient:
     client=paramiko.client.SSHClient()
@@ -20,6 +20,10 @@ def mkdir_remote(sftp:paramiko.SFTPClient,remotepath:str)->None:
         sftp.chdir(remotepath)
     except:
         sftp.mkdir(remotepath)
+        print("MAKEDIR", remotepath)
+    else:
+        print("SKIPMAKEDIR", remotepath)
+        return None
 
 def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str):
     filesArray=list(iter(Path(from_dir).glob("*")))
@@ -27,14 +31,19 @@ def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str):
         return
     else:
         for file in filesArray:
-            print(file)
             target_file_loc = target_dir +"/"+ PurePath(file).stem
-
             if(file.is_dir()):
-                mkdir_remote(sftp,target_file_loc)
+                mkdir_remote(sftp,str(PurePath(target_file_loc).parent))
                 copy_files(sftp,str(file),target_file_loc)
             else:
-                sftp.put(str(file),target_file_loc)
+                mkdir_remote(sftp, str(PurePath(target_file_loc).parent))
+                try:
+                    sftp.put(str(file),target_file_loc)
+                    print("COPY",file,target_file_loc)
+                except:
+                    print("SKIP",file, target_file_loc)
+                    continue
+
 
 
 
