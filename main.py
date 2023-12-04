@@ -39,15 +39,18 @@ def copy_files(sftp:paramiko.SFTPClient,from_dir:str,target_dir:str,TOTAL_FILES)
                 mkdir_remote(sftp,str(PurePath(target_file_loc)))
                 nowcopy+=copy_files(sftp,str(file),target_file_loc,TOTAL_FILES)
             else:
-                if(PurePath(file).stem in toFilesArray):
-                    print("SKIP", file, target_file_loc)
-                    nowcopy += 1
-                else:
-                    mkdir_remote(sftp, str(PurePath(target_file_loc).parent))
-                    sftp.put(str(file), target_file_loc)
-                    nowcopy += 1
-                    print("COPY", file, target_file_loc)
-                print("Progress:{}/{}".format(nowcopy, TOTAL_FILES))
+                try:
+                    if(PurePath(file).stem in toFilesArray or PurePath(file).stem[0]=='.'):
+                        print("SKIP", file, target_file_loc)
+                        nowcopy += 1
+                    else:
+                        mkdir_remote(sftp, str(PurePath(target_file_loc).parent))
+                        sftp.put(str(file), target_file_loc)
+                        nowcopy += 1
+                        print("COPY", file, target_file_loc)
+                    print("Progress:{}/{}".format(nowcopy, TOTAL_FILES))
+                except:
+                    print("FAILED",file, target_file_loc)
     return nowcopy
 
 
